@@ -5,6 +5,7 @@ import type {
   LockfileDependencyReference,
   LockfileGraphSnapshot,
   LockfilePackageRecord,
+  LockfileSourceInfo,
 } from './LockfileGraphSnapshot.js';
 import { isRecord, lockfileParseError } from './lockfileUtilities.js';
 
@@ -33,6 +34,7 @@ export function parsePnpmLockfile(
   const packageData = isRecord(value.packages) ? value.packages : {};
   const snapshotData = isRecord(value.snapshots) ? value.snapshots : packageData;
   const identities = createIdentityIndex(packageData, snapshotData);
+  const declaredPatches = readDeclaredPatches(value.patchedDependencies);
   const packages: LockfilePackageRecord[] = [];
 
   for (const key of [
@@ -56,6 +58,7 @@ export function parsePnpmLockfile(
       name: identity.name,
       version: identity.version,
       integrity: typeof resolution.integrity === 'string' ? 'present' : 'missing',
+      source: readPnpmSource(resolution, identity, declaredPatches),
       dependencies: readPnpmDependencySections(relations, (name, requested) =>
         resolvePnpmTarget(name, requested, identities),
       ),
@@ -87,6 +90,64 @@ export function parsePnpmLockfile(
       dependencies: deduplicateReferences(importerDependencies),
     },
   };
+}
+
+function readDeclaredPatches(value: unknown): ReadonlyMap<string, string> {
+  const patches = new Map<string, string>();
+  if (!isRecord(value)) return patches;
+  for (const [specifier, entry] of Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) {
+    if (isRecord(entry) && typeof entry.hash === 'string') {
+      patches.set(specifier, entry.hash);
+    }
+  }
+  return patches;
+}
+
+function readPnpmSource(
+  resolution: Record<string, unknown>,
+  identity: { readonly name: string; readonly version: string },
+  declaredPatches: ReadonlyMap<string, string>,
+): LockfileSourceInfo {
+  const patchHash = /\(patch_hash=([^)]+)\)/.exec(identity.version)?.[1];
+  const baseVersion = stripPeerSuffix(identity.version).replace(/\(patch_hash=[^)]+\)/g, '');
+  const declaredHash =
+    declaredPatches.get(`${identity.name}@${baseVersion}`) ?? declaredPatches.get(identity.version);
+  const patch =
+    patchHash === undefined
+      ? {}
+      : {
+          patched: true,
+          patchHash,
+          patchConfirmed: declaredHash !== undefined && declaredHash === patchHash,
+        };
+  if (typeof resolution.tarball === 'string') {
+    const tarball = resolution.tarball;
+    const host = URL.canParse(tarball) ? new URL(tarball).host : undefined;
+    return {
+      kind: 'tarball',
+      locator: tarball,
+      ...(host === undefined ? {} : { registryHost: host }),
+      ...patch,
+    };
+  }
+  if (typeof resolution.repo === 'string' || resolution.type === 'git') {
+    return {
+      kind: 'git',
+      ...(typeof resolution.repo === 'string' ? { locator: resolution.repo } : {}),
+      ...patch,
+    };
+  }
+  if (resolution.type === 'directory' || typeof resolution.directory === 'string') {
+    return {
+      kind: 'file',
+      ...(typeof resolution.directory === 'string' ? { locator: resolution.directory } : {}),
+      ...patch,
+    };
+  }
+  if (typeof resolution.integrity === 'string') {
+    return { kind: 'registry', ...patch };
+  }
+  return { kind: 'unknown', ...patch };
 }
 
 function deduplicateReferences(
@@ -152,11 +213,11 @@ function readSections(
     if (!isRecord(section)) throw lockfileParseError(`pnpm ${field} must be an object.`);
     for (const [name, raw] of Object.entries(section).sort(([a], [b]) => a.localeCompare(b))) {
       if (scope === 'runtime' && optionalNames.has(name)) continue;
-      const requested = readPnpmReference(raw, importer, field, name);
-      const targetId = resolveTarget(name, requested);
+      const reference = readPnpmReference(raw, importer, field, name);
+      const targetId = resolveTarget(name, reference.resolution);
       references.push({
         name,
-        requested,
+        requested: reference.requested,
         scope,
         optional,
         peer,
@@ -167,9 +228,20 @@ function readSections(
   return references;
 }
 
-function readPnpmReference(raw: unknown, importer: boolean, field: string, name: string): string {
-  if (typeof raw === 'string') return raw;
-  if (importer && isRecord(raw) && typeof raw.version === 'string') return raw.version;
+function readPnpmReference(
+  raw: unknown,
+  importer: boolean,
+  field: string,
+  name: string,
+): { readonly requested: string; readonly resolution: string } {
+  if (typeof raw === 'string') return { requested: raw, resolution: raw };
+  if (importer && isRecord(raw) && typeof raw.version === 'string') {
+    // pnpm importers record both the declared specifier and the resolved
+    // version; keep them distinct so range matching uses the declaration
+    // while graph resolution follows the locked version.
+    const requested = typeof raw.specifier === 'string' ? raw.specifier : raw.version;
+    return { requested, resolution: raw.version };
+  }
   throw lockfileParseError(`pnpm ${field}.${name} must provide a string version.`);
 }
 

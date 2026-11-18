@@ -1,5 +1,16 @@
 export type DependencyScope = 'runtime' | 'development' | 'peer' | 'optional';
 
+export type LockfileSourceKind = 'registry' | 'tarball' | 'git' | 'file' | 'link' | 'unknown';
+
+export interface LockfileSourceInfo {
+  readonly kind: LockfileSourceKind;
+  readonly locator?: string;
+  readonly registryHost?: string;
+  readonly patched?: boolean;
+  readonly patchHash?: string;
+  readonly patchConfirmed?: boolean;
+}
+
 export interface LockfileDependencyReference {
   readonly name: string;
   readonly requested: string;
@@ -15,6 +26,7 @@ export interface LockfilePackageRecord {
   readonly version?: string;
   readonly dependencies: readonly LockfileDependencyReference[];
   readonly integrity?: 'present' | 'missing';
+  readonly source?: LockfileSourceInfo;
 }
 
 export interface LockfileImporterRecord {

@@ -8,6 +8,8 @@ export function mapErrorToExitCode(error: unknown): number {
   switch (error.code) {
     case 'PW_CLI_INVALID_ARGUMENT':
     case 'PW_CONFIG_INVALID':
+    case 'PW_AUDIT_DATABASE_INVALID':
+    case 'PW_AUDIT_EXCEPTIONS_INVALID':
     case 'PW_CACHE_UNSAFE':
     case 'PW_FINDING_NOT_FOUND':
     case 'PW_FINDING_SELECTOR_AMBIGUOUS':

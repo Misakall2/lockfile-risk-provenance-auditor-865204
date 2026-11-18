@@ -1,5 +1,6 @@
 import type { PkgWiseClient } from '@lovlydev/pkgwise-core';
 import { Command } from 'commander';
+import { createAuditCommand } from './commands/createAuditCommand.js';
 import { createCacheCommand } from './commands/createCacheCommand.js';
 import type { CommandContext } from './commands/CommandContext.js';
 import { createCompareCommand } from './commands/createCompareCommand.js';
@@ -36,6 +37,7 @@ export function createCli(options: CreateCliOptions): Command {
   );
 
   program.addCommand(createScanCommand(context));
+  program.addCommand(createAuditCommand(context));
   program.addCommand(createInspectCommand(context));
   program.addCommand(createCompareCommand(context));
   program.addCommand(createExplainCommand(context));

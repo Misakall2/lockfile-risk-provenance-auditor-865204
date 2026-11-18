@@ -4,6 +4,7 @@ import type {
   LockfileDependencyReference,
   LockfileGraphSnapshot,
   LockfilePackageRecord,
+  LockfileSourceInfo,
 } from './LockfileGraphSnapshot.js';
 import { isRecord, lockfileParseError, readStringMap } from './lockfileUtilities.js';
 
@@ -68,6 +69,7 @@ export function parseNpmLockfile(
       name,
       ...(typeof entry.version === 'string' ? { version: entry.version } : {}),
       integrity: typeof entry.integrity === 'string' ? 'present' : 'missing',
+      source: readNpmSource(entry),
       dependencies: readNpmPackageDependencies(entry, resolveTarget),
     });
   }
@@ -172,6 +174,26 @@ function deduplicateReferences(
   return [...byIdentity.values()].sort((a, b) =>
     `${a.name}\0${a.scope}`.localeCompare(`${b.name}\0${b.scope}`),
   );
+}
+
+function readNpmSource(entry: NpmPackageEntry): LockfileSourceInfo {
+  const resolved = typeof entry.resolved === 'string' ? entry.resolved : undefined;
+  if (resolved === undefined) return { kind: 'unknown' };
+  if (resolved.startsWith('file:')) {
+    return { kind: 'file', locator: resolved };
+  }
+  if (/^(?:git(?:\+(?:https?|ssh|file))?:|ssh:|hg:)/.test(resolved) || resolved.includes('.git#')) {
+    return { kind: 'git', locator: resolved };
+  }
+  if (/^https?:\/\//.test(resolved)) {
+    const host = URL.canParse(resolved) ? new URL(resolved).host : undefined;
+    return {
+      kind: 'registry',
+      locator: resolved,
+      ...(host === undefined ? {} : { registryHost: host }),
+    };
+  }
+  return { kind: 'unknown', locator: resolved };
 }
 
 function normalizeImporterId(value: string): string {

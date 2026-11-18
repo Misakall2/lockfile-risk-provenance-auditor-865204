@@ -354,3 +354,145 @@ export interface ClearCacheResult {
   readonly removedBytes: number;
   readonly namespaceRemoved: boolean;
 }
+
+export type AuditMatchStatus = 'confirmed' | 'range-only' | 'mitigated';
+export type AuditUpgradeStatus = 'ready' | 'constrained' | 'unavailable';
+export type AuditFixStatusFilter = AuditUpgradeStatus | 'mitigated';
+
+export interface AuditSourceInfo {
+  readonly kind: 'registry' | 'tarball' | 'git' | 'file' | 'link' | 'unknown';
+  readonly locator?: string;
+  readonly registryHost?: string;
+  readonly patched: boolean;
+  readonly patchConfirmed: boolean;
+  readonly patchHash?: string;
+}
+
+export interface AuditDeclaredRange {
+  readonly specifier: string;
+  readonly declaredBy: string;
+  readonly scope: 'runtime' | 'development' | 'peer' | 'optional';
+}
+
+export interface AuditLockEntry {
+  readonly key: string;
+  readonly manager: 'npm' | 'pnpm';
+  readonly name: string;
+  readonly version?: string;
+  readonly resolutionLevel: 'direct' | 'transitive';
+  readonly depth: number;
+  readonly source: AuditSourceInfo;
+  readonly declaredRanges: readonly AuditDeclaredRange[];
+  readonly dependencyPaths: readonly DependencyPath[];
+  readonly packageIds: readonly string[];
+}
+
+export interface AuditEvidenceItem {
+  readonly id: string;
+  readonly advisoryId: string;
+  readonly entryKey: string;
+  readonly summary: string;
+}
+
+export interface AuditVulnerabilityMatch {
+  readonly id: string;
+  readonly advisory: {
+    readonly id: string;
+    readonly aliases: readonly string[];
+    readonly severity: FindingSeverity;
+    readonly effectiveSeverity: FindingSeverity;
+    readonly summary?: string;
+    readonly references: readonly string[];
+  };
+  readonly package: string;
+  readonly entry: {
+    readonly key: string;
+    readonly name: string;
+    readonly version?: string;
+    readonly resolutionLevel: 'direct' | 'transitive';
+  };
+  readonly status: AuditMatchStatus;
+  readonly matchedOn: 'resolved-version' | 'declared-range';
+  readonly declaredRanges: readonly string[];
+  readonly resolvedVersion?: string;
+  readonly renamedFrom?: string;
+  readonly mitigation?: {
+    readonly kind: 'patch';
+    readonly confirmed: boolean;
+    readonly note: string;
+  };
+  readonly dependencyPaths: readonly DependencyPath[];
+  readonly evidence: readonly AuditEvidenceItem[];
+}
+
+export interface AuditUpgradeSuggestion {
+  readonly matchId: string;
+  readonly entry: {
+    readonly key: string;
+    readonly name: string;
+    readonly version?: string;
+  };
+  readonly currentVersion?: string;
+  readonly candidate?: string;
+  readonly status: AuditUpgradeStatus;
+  readonly blockedBy: readonly {
+    readonly dependent: string;
+    readonly specifier: string;
+  }[];
+  readonly summary: string;
+}
+
+export interface AuditExceptionRecord {
+  readonly advisory: string;
+  readonly package?: string;
+  readonly reason: string;
+  readonly expiresAt: string;
+  readonly matchedCount: number;
+}
+
+export interface AuditUnverifiableRange {
+  readonly entryKey: string;
+  readonly package: string;
+  readonly specifier: string;
+  readonly reason: string;
+}
+
+export interface LockfileAuditReport {
+  readonly schemaVersion: '1';
+  readonly generatedAt: string;
+  readonly tool: { readonly name: 'pkgwise'; readonly version: string };
+  readonly project: {
+    readonly rootName: string;
+    readonly manager: string;
+    readonly lockfile?: string;
+    readonly mode: 'locked' | 'manifest-only';
+  };
+  readonly summary: {
+    readonly entryCount: number;
+    readonly confirmedCount: number;
+    readonly rangeOnlyCount: number;
+    readonly mitigatedCount: number;
+    readonly ignoredCount: number;
+    readonly expiredExceptionCount: number;
+    readonly unverifiableRangeCount: number;
+    readonly filteredMatchCount: number;
+  };
+  readonly entries: readonly AuditLockEntry[];
+  readonly matches: readonly AuditVulnerabilityMatch[];
+  readonly upgrades: readonly AuditUpgradeSuggestion[];
+  readonly exceptions: {
+    readonly active: readonly AuditExceptionRecord[];
+    readonly expired: readonly AuditExceptionRecord[];
+  };
+  readonly unverifiableRanges: readonly AuditUnverifiableRange[];
+  readonly filters: {
+    readonly component?: string;
+    readonly path?: string;
+    readonly fixStatus?: AuditFixStatusFilter;
+  };
+  readonly diagnostics: readonly {
+    readonly code: string;
+    readonly level: 'warning' | 'info';
+    readonly message: string;
+  }[];
+}

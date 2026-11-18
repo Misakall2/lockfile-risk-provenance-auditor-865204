@@ -429,6 +429,82 @@ describe('runCli', () => {
     assert.equal(io.readStderr(), '');
   });
 
+  it('audits a lockfile against an offline advisory database', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pkgwise-cli-audit-'));
+    try {
+      await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({ name: 'cli-audit', dependencies: { vulnerable: '^1.0.0' } }),
+      );
+      await writeFile(
+        join(root, 'package-lock.json'),
+        JSON.stringify({
+          lockfileVersion: 3,
+          packages: {
+            '': { dependencies: { vulnerable: '^1.0.0' } },
+            'node_modules/vulnerable': { version: '1.2.0' },
+          },
+        }),
+      );
+      await writeFile(
+        join(root, 'advisories.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          advisories: [
+            {
+              id: 'GHSA-cli-audit',
+              package: 'vulnerable',
+              severity: 'high',
+              affected: ['<1.5.0'],
+              fixed: ['1.5.0'],
+            },
+          ],
+        }),
+      );
+      const io = createMemoryIo();
+
+      const exitCode = await runCli(
+        ['audit', root, '--advisories', join(root, 'advisories.json')],
+        {
+          io,
+        },
+      );
+
+      assert.equal(exitCode, 1);
+      assert.match(io.readStdout(), /HIGH \[confirmed\] GHSA-cli-audit → vulnerable@1\.2\.0/);
+      assert.match(io.readStdout(), /Upgrade: ready → 1\.5\.0/);
+      assert.equal(io.readStderr(), '');
+
+      const jsonIo = createMemoryIo();
+      const jsonExit = await runCli(
+        [
+          '--format',
+          'json',
+          'audit',
+          root,
+          '--advisories',
+          join(root, 'advisories.json'),
+          '--component',
+          'vulnerable',
+        ],
+        { io: jsonIo },
+      );
+      assert.equal(jsonExit, 1);
+      const report = JSON.parse(jsonIo.readStdout()) as {
+        summary: { confirmedCount: number; filteredMatchCount: number };
+        matches: Array<{ entry: { name: string }; status: string }>;
+        filters: { component: string };
+      };
+      assert.equal(report.summary.confirmedCount, 1);
+      assert.equal(report.summary.filteredMatchCount, 1);
+      assert.equal(report.matches[0]?.entry.name, 'vulnerable');
+      assert.equal(report.matches[0]?.status, 'confirmed');
+      assert.equal(report.filters.component, 'vulnerable');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('does not pretend that an unfinished SARIF reporter is valid', async () => {
     const io = createMemoryIo();
 

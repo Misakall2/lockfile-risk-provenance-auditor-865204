@@ -1,5 +1,6 @@
 import { diagnoseEnvironment } from '../application/diagnoseEnvironment.js';
 import { analyzeProject } from '../application/analyzeProject.js';
+import { auditLockfileRisk } from '../application/auditLockfileRisk.js';
 import { explainFinding } from '../application/explainFinding.js';
 import { inspectPackage } from '../application/inspectPackage.js';
 import { comparePackages } from '../application/comparePackages.js';
@@ -24,6 +25,7 @@ export function createPkgWise(options: CreatePkgWiseOptions = {}): PkgWiseClient
   };
   return {
     analyzeProject: (input) => analyzeProject(input, context),
+    auditLockfile: (input) => auditLockfileRisk(input, context),
     inspectPackage: (input) => inspectPackage(input, context),
     comparePackages: (input) => comparePackages(input, context),
     explainFinding: (input) => explainFinding(input, context),

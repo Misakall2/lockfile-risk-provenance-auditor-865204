@@ -1,5 +1,6 @@
 import type {
   AnalyzeProjectInput,
+  AuditLockfileInput,
   CacheStatusInput,
   ClearCacheInput,
   ComparePackagesInput,
@@ -13,12 +14,14 @@ import type {
   ClearCacheResult,
   DoctorReport,
   FindingExplanation,
+  LockfileAuditReport,
   PackageComparison,
   PackageInspection,
 } from './ClientResults.js';
 
 export interface PkgWiseClient {
   analyzeProject(input: AnalyzeProjectInput): Promise<AnalysisReport>;
+  auditLockfile(input: AuditLockfileInput): Promise<LockfileAuditReport>;
   inspectPackage(input: InspectPackageInput): Promise<PackageInspection>;
   comparePackages(input: ComparePackagesInput): Promise<PackageComparison>;
   explainFinding(input: ExplainFindingInput): Promise<FindingExplanation>;

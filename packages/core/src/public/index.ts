@@ -1,5 +1,8 @@
 export type {
   AnalyzeProjectInput,
+  AuditExceptionInput,
+  AuditLockfileFilters,
+  AuditLockfileInput,
   CacheStatusInput,
   ClearCacheInput,
   ComparePackagesInput,
@@ -9,6 +12,17 @@ export type {
 } from './ClientInputs.js';
 export type {
   AnalysisReport,
+  AuditDeclaredRange,
+  AuditEvidenceItem,
+  AuditExceptionRecord,
+  AuditFixStatusFilter,
+  AuditLockEntry,
+  AuditMatchStatus,
+  AuditSourceInfo,
+  AuditUnverifiableRange,
+  AuditUpgradeStatus,
+  AuditUpgradeSuggestion,
+  AuditVulnerabilityMatch,
   CacheStatusReport,
   ClearCacheResult,
   DependencyCycleSummary,
@@ -21,6 +35,7 @@ export type {
   FindingPriority,
   FindingSeverity,
   FindingExplanation,
+  LockfileAuditReport,
   PackageComparison,
   PackageComparisonCandidate,
   PackageComparisonMetric,
@@ -39,6 +54,11 @@ export type {
   UnresolvedDependencyRelation,
 } from './ClientResults.js';
 export type { CreatePkgWiseOptions } from './createPkgWise.js';
+export type {
+  AuditAdvisoryDatabase,
+  AuditAdvisoryRecord,
+  AuditPackageRename,
+} from '../audit/AuditDatabase.js';
 export type {
   ConfiguredDependencyScope,
   ConfiguredEvidenceKind,

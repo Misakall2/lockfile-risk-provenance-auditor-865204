@@ -1,4 +1,6 @@
 import type { ProgressEvent } from './ProgressEvent.js';
+import type { AuditAdvisoryDatabase } from '../audit/AuditDatabase.js';
+import type { AuditFixStatusFilter } from './ClientResults.js';
 
 export interface CommonOperationInput {
   readonly signal?: AbortSignal;
@@ -51,4 +53,28 @@ export interface CacheStatusInput extends CommonOperationInput {}
 
 export interface ClearCacheInput extends CacheStatusInput {
   readonly provider?: string;
+}
+
+export interface AuditExceptionInput {
+  readonly advisory: string;
+  readonly package?: string;
+  readonly reason: string;
+  readonly expiresAt: string;
+}
+
+export interface AuditLockfileFilters {
+  readonly component?: string;
+  readonly path?: string;
+  readonly fixStatus?: AuditFixStatusFilter;
+}
+
+export interface AuditLockfileInput extends CommonOperationInput {
+  readonly root: string;
+  readonly workspaces?: readonly string[];
+  readonly includeDev?: boolean;
+  readonly advisories?: AuditAdvisoryDatabase;
+  readonly advisoryDatabaseFile?: string;
+  readonly exceptions?: readonly AuditExceptionInput[];
+  readonly exceptionsFile?: string;
+  readonly filters?: AuditLockfileFilters;
 }
